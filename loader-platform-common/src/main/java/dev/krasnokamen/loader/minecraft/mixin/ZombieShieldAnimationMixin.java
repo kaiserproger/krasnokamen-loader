@@ -1,9 +1,9 @@
 package dev.krasnokamen.loader.minecraft.mixin;
 
+import dev.krasnokamen.loader.minecraft.ClientVersionApi;
 import net.minecraft.client.model.AnimationUtils;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.monster.zombie.AbstractZombieModel;
 import net.minecraft.client.renderer.entity.state.UndeadRenderState;
 import net.minecraft.client.renderer.entity.state.ZombieRenderState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,9 +11,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /** Keep HumanoidModel's already-computed blocking pose instead of overwriting both arms. */
-@Mixin(AbstractZombieModel.class)
+@Mixin(targets = ClientVersionApi.ZOMBIE_ANIMATION_OWNER)
 abstract class ZombieShieldAnimationMixin {
-    @Redirect(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/ZombieRenderState;)V",
+    @Redirect(method = ClientVersionApi.ZOMBIE_ANIMATION_METHOD,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/AnimationUtils;animateZombieArms(Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;ZLnet/minecraft/client/renderer/entity/state/UndeadRenderState;)V"))
     private void krasnokamen$preserveShield(ModelPart left, ModelPart right, boolean aggressive, UndeadRenderState state) {
         ZombieRenderState zombie = (ZombieRenderState) state;

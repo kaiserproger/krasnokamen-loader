@@ -13,6 +13,11 @@ import java.util.function.Function;
 /** Version-specific Minecraft signatures; common Loader code owns the behavior. */
 public final class ClientVersionApi {
     private ClientVersionApi() {}
+    /** Zombie arm-animation owner and setup method (the 26.3 model merge folded
+        AbstractZombieModel into ZombieModel). */
+    public static final String ZOMBIE_ANIMATION_OWNER = "net.minecraft.client.model.monster.zombie.AbstractZombieModel";
+    public static final String ZOMBIE_ANIMATION_METHOD =
+        "setupAnim(Lnet/minecraft/client/renderer/entity/state/ZombieRenderState;)V";
     public static final String GUI_FOCUS_OWNER = "net.minecraft.client.Minecraft";
     public static Screen screen(Minecraft client) { return client.screen; }
     public static void setScreen(Minecraft client, Screen screen) { client.setScreen(screen); }

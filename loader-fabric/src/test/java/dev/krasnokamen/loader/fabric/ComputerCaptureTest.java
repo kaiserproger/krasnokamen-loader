@@ -14,22 +14,12 @@ class ComputerCaptureTest {
         assertThrows(IllegalArgumentException.class, () -> new X11ComputerCapture.Frame(2, 2, ByteBuffer.allocate(16)));
         assertEquals(16, X11ComputerCapture.byteCount(2, 2));
     }
-    @Test void linuxX11CaptureUploadsActualPixelsToTexture() throws Exception {
+    @Test void linuxX11CaptureUploadsActualPixelsToTexture() throws Throwable {
         assumeTrue("1".equals(System.getenv("KRASNOKAMEN_CAPTURE_SMOKE_X11")), "Explicit isolated Xvfb smoke only");
-        // Minecraft 26.3 uses SDL3 rather than GLFW. Pin this opt-in smoke to X11.
-        assertTrue(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11"));
-        assertTrue(SDL_Init(SDL_INIT_VIDEO), "SDL must initialize on the isolated display");
-        long window = 0;
-        long context = 0;
-        try {
-            window = SDL_CreateWindow(
-                    "Krasnokamen capture smoke (synthetic pixels)", 64, 64, SDL_WINDOW_BORDERLESS | SDL_WINDOW_OPENGL);
-            assertNotEquals(0, window);
-            assertTrue(SDL_SetWindowPosition(window, 0, 0));
-            context = SDL_GL_CreateContext(window);
-            assertNotEquals(0, context);
-            assertTrue(SDL_GL_MakeCurrent(window, context));
-            GL.createCapabilities();
+        // Minecraft 26.3 uses SDL3 rather than GLFW; the version shim owns the window.
+        ClientVersionApi.captureWindow(() -> {
+            // X11 capture reads the visible buffer, not an unswapped GL back buffer.
+            GL11.glDrawBuffer(GL11.GL_FRONT);
             GL11.glClearColor(32f / 255, 128f / 255, 224f / 255, 1);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
             GL11.glFinish();

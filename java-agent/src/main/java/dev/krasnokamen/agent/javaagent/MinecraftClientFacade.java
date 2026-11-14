@@ -16,6 +16,7 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -1436,7 +1437,10 @@ public final class MinecraftClientFacade implements ClientFacade {
     public Path screenshot(Path path) throws Exception {
         Path directory = screenshotBaseDirectory(path);
         Files.createDirectories(directory.resolve("screenshots"));
-        CompletableFuture<String> completion = new CompletableFuture<>();
+        // A plain (vanillaEvents) client keeps the render-state gait sidecar: sample the
+        // living-entity render inputs of the frame this screenshot renders.
+        boolean vanillaFrame = Boolean.getBoolean("krasnokamen.client.vanillaEvents");
+        CompletableFuture<JsonArray> completion = new CompletableFuture<>();
         new MinecraftClientExecutor().callOnClientThread(() -> {
             Minecraft minecraft = Minecraft.getInstance();
             Screenshot.grab(
@@ -1444,13 +1448,13 @@ public final class MinecraftClientFacade implements ClientFacade {
                 path.getFileName().toString(),
                 MinecraftGuiAccess.mainRenderTarget(minecraft),
                 1,
-                message -> completion.complete(message.getString())
+                message -> completion.complete(vanillaFrame ? renderedGait(minecraft) : new JsonArray())
             );
             return null;
         });
-        final String resultMessage;
+        final JsonArray gait;
         try {
-            renderedGait = completion.get(30, TimeUnit.SECONDS);
+            gait = completion.get(30, TimeUnit.SECONDS);
         } catch (InterruptedException error) {
             completion.cancel(false);
             Thread.currentThread().interrupt();
@@ -1465,7 +1469,7 @@ public final class MinecraftClientFacade implements ClientFacade {
             throw new IllegalStateException("screenshot was not written: " + path);
         }
         if (vanillaFrame) {
-            Files.writeString(path.resolveSibling(path.getFileName() + ".gait.json"), renderedGait.toString());
+            Files.writeString(path.resolveSibling(path.getFileName() + ".gait.json"), gait.toString());
         }
         return path;
     }

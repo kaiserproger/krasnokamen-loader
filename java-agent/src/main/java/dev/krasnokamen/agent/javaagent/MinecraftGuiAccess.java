@@ -57,6 +57,53 @@ final class MinecraftGuiAccess {
         }
     }
 
+    private static volatile MethodHandle renderStateHandle;
+
+    /**
+     * The last completed render state. Resolved on first use, not with the GUI layout: only the
+     * vanilla-frame gait sidecar reads it, and a client without it must still give GUI access.
+     * 26.1.2 exposes getGameRenderState(); the 26.3 renderer renamed it gameRenderState().
+     */
+    static Object renderState(Minecraft minecraft) {
+        try {
+            return renderStateHandle().invokeExact((Object) minecraft);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("reading Minecraft render state", failure);
+        }
+    }
+
+    private static MethodHandle renderStateHandle() {
+        MethodHandle handle = renderStateHandle;
+        if (handle != null) {
+            return handle;
+        }
+        synchronized (MinecraftGuiAccess.class) {
+            handle = renderStateHandle;
+            if (handle == null) {
+                try {
+                    MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+                    Field renderer = Minecraft.class.getField("gameRenderer");
+                    String name;
+                    try {
+                        renderer.getType().getMethod("getGameRenderState");
+                        name = "getGameRenderState";
+                    } catch (NoSuchMethodException renamed) {
+                        renderer.getType().getMethod("gameRenderState");
+                        name = "gameRenderState";
+                    }
+                    handle = MethodHandles.filterReturnValue(
+                        lookup.unreflectGetter(renderer),
+                        lookup.unreflect(renderer.getType().getMethod(name)))
+                        .asType(MethodType.methodType(Object.class, Object.class));
+                } catch (ReflectiveOperationException failure) {
+                    throw new IllegalStateException("reading Minecraft render state", failure);
+                }
+                renderStateHandle = handle;
+            }
+            return handle;
+        }
+    }
+
     static boolean isKeyboardType(String name) {
         return name.equals("KEYBOARD") || name.equals("KEYSYM");
     }
