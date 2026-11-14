@@ -27,6 +27,17 @@ def pack_loaded_once_per_connection(rows: list[dict]) -> bool:
     return len(loaded) == 2 and len(set(loaded)) == 2
 
 
+APPROACH_TIMEOUT_SECONDS = 15
+
+
+def approach_timeout(seconds_left: float) -> int:
+    """Per-approach MCP timeout, never longer than the combat deadline that is left.
+
+    A flat 15 s call issued just before the deadline reports a missed blue target on a fight that
+    was still walking; the receipt then cannot tell a stuck battle from an exhausted budget."""
+    return max(1, min(APPROACH_TIMEOUT_SECONDS, int(seconds_left)))
+
+
 def battle_model_errors(paths):
     """Fail the functional gate on rejected battle models or pack metadata."""
     return {str(path): [line for line in path.read_text(errors="replace").splitlines()
@@ -297,7 +308,11 @@ def run(args):
         attacks = []
         unreachable, approaches = set(), []
         while len(attacks) < 8:
-            check(time.monotonic() < deadline, "no blue target reached within the live combat deadline")
+            # A 15 s approach after the deadline has nearly run out reports "no blue target reached"
+            # when the truth is "the approach budget ran out": bound each call by what is left.
+            remaining = deadline - time.monotonic()
+            check(remaining > 0, "no blue target reached within the live combat deadline"
+                  + (f" (approaches: {len(approaches)}, unreachable candidates: {len(unreachable)})" if approaches else ""))
             entities = pov.call_tool("minecraft_list_entities", {"radius": 16, "limit": 512})["entities"]
             blue = [e for e in entities if e.get("off_hand", {}).get("item_model") == "krasnokamen_battle:blue_heater_shield"
                     and e.get("health", 0) > 0 and e.get("vehicle_id") is None
@@ -308,7 +323,8 @@ def run(args):
                 continue
             target = blue[0]
             if target["distance"] > 4:
-                approached = pov.call_tool("minecraft_approach_entity", {"entity_id": target["entity_id"], "timeout_seconds": 15})
+                approached = pov.call_tool("minecraft_approach_entity", {
+                    "entity_id": target["entity_id"], "timeout_seconds": approach_timeout(remaining)})
                 approaches.append(approached)
                 record("approaches", approaches)
                 if not approached["in_reach"]:
