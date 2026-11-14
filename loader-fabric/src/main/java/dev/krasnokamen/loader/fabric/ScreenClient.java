@@ -1,6 +1,5 @@
 package dev.krasnokamen.loader.fabric;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import dev.krasnokamen.loader.LoaderActivatedContent;
 import dev.krasnokamen.loader.ScreenGeometry;
 import dev.krasnokamen.loader.ScreenProtocol;
@@ -16,6 +15,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import dev.krasnokamen.loader.minecraft.ClientVersionApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -160,7 +160,7 @@ final class ScreenClient {
     private static InteractionResult use(ScreenProtocol.Id id) {
         Minecraft client = Minecraft.getInstance();
         if (share != null && share.id().equals(id)) {
-            client.execute(() -> client.gui.setScreen(ownerMenu()));
+            client.execute(() -> ClientVersionApi.setScreen(client, ownerMenu()));
             return InteractionResult.SUCCESS;
         }
         if (RELAY.active().containsKey(id)) {
@@ -183,7 +183,7 @@ final class ScreenClient {
         }
         // Opened only to prove this machine can capture; the dialog decides whether it is used.
         DesktopCapture capture = probe.get();
-        client.execute(() -> client.gui.setScreen(new ScreenDialog(
+        client.execute(() -> ClientVersionApi.setScreen(client, new ScreenDialog(
                 "Share your screen on this monitor?",
                 List.of("Your entire primary screen can be shown to players you allow.",
                         "Nothing is shared until a player asks and you allow it."),
@@ -237,7 +237,7 @@ final class ScreenClient {
 
     private static void notice(String text) {
         Minecraft client = Minecraft.getInstance();
-        client.execute(() -> client.gui.hud.setOverlayMessage(Component.literal(text), false));
+        client.execute(() -> ClientVersionApi.notice(client, Component.literal(text)));
     }
 
     // ---- per tick --------------------------------------------------------------
@@ -251,14 +251,14 @@ final class ScreenClient {
         if (message != null) {
             notice(message);
         }
-        boolean f8 = InputConstants.isKeyDown(KEY_F8);
-        if (f8 && !leaveDown && client.gui.screen() == null) {
+        boolean f8 = ClientVersionApi.isKeyDown(client, KEY_F8);
+        if (f8 && !leaveDown && ClientVersionApi.screen(client) == null) {
             leave();
         }
         leaveDown = f8;
-        if (client.gui.screen() == null && RELAY.pendingRequests() > 0) {
+        if (ClientVersionApi.screen(client) == null && RELAY.pendingRequests() > 0) {
             ScreenProtocol.Requested request = RELAY.pollRequest();
-            client.gui.setScreen(new ScreenDialog("Screen viewing request",
+            ClientVersionApi.setScreen(client, new ScreenDialog("Screen viewing request",
                     List.of(request.name() + " asks to view your shared screen."),
                     List.of(new ScreenDialog.Choice("Allow", () -> send(ScreenProtocol.answer(request.request(), true))),
                             new ScreenDialog.Choice("Deny", () -> send(ScreenProtocol.answer(request.request(), false)))),

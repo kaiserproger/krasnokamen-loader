@@ -24,6 +24,14 @@ public final class ClientVersionApi {
     public static Overlay overlay(Minecraft client) { return client.getOverlay(); }
     public static boolean hudHidden(Minecraft client) { return client.options.hideGui; }
     public static int keycode(KeyEvent event) { return event.scancode(); }
+    /** Overlay chat line (Gui.setOverlayMessage before 26.3 moved the HUD into Hud). */
+    public static void notice(Minecraft client, net.minecraft.network.chat.Component text) {
+        client.gui.setOverlayMessage(text, false);
+    }
+    /** Physical key down: 26.x needs the window, 26.3 reads the key alone. */
+    public static boolean isKeyDown(Minecraft client, int key) {
+        return InputConstants.isKeyDown(client.getWindow(), key);
+    }
     public static InputConstants.Type keyboardType() { return InputConstants.Type.KEYSYM; }
     interface PackMetadata {}
     static java.util.stream.Stream<PackResources> openPack(Pack pack) {

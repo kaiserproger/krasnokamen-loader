@@ -24,6 +24,14 @@ public final class ClientVersionApi {
     public static Overlay overlay(Minecraft client) { return client.gui.overlay(); }
     public static boolean hudHidden(Minecraft client) { return client.gui.hud.isHidden(); }
     public static int keycode(KeyEvent event) { return event.keycode(); }
+    /** Overlay chat line (Hud owns it from 26.3). */
+    public static void notice(Minecraft client, net.minecraft.network.chat.Component text) {
+        client.gui.hud.setOverlayMessage(text, false);
+    }
+    /** Physical key down (26.3 reads the key alone). */
+    public static boolean isKeyDown(Minecraft client, int key) {
+        return InputConstants.isKeyDown(key);
+    }
     public static InputConstants.Type keyboardType() { return InputConstants.Type.KEYBOARD; }
     interface PackMetadata extends net.minecraft.server.packs.PackMetadataResources {}
     static java.util.stream.Stream<PackResources> openPack(Pack pack) {

@@ -1,19 +1,17 @@
 package dev.krasnokamen.loader.fabric;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.renderpearl.api.textures.FilterMode;
 import dev.krasnokamen.loader.ScreenVideo;
+import dev.krasnokamen.loader.minecraft.LinearSampledTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 
 /** One registered dynamic texture holding a shared-screen picture. Render thread only. */
 final class ScreenTexture implements AutoCloseable {
-    private static final class Linear extends DynamicTexture {
+    private static final class Linear extends LinearSampledTexture {
         Linear(int width, int height) {
-            super(() -> "krasnokamen screen", width, height, false);
-            sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+            super(() -> "krasnokamen screen", width, height);
         }
     }
 

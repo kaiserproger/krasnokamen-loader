@@ -7,22 +7,21 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.fabric.api.client.sound.v1.FabricSoundInstance;
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
-import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.client.sounds.WeighedSoundEvents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.valueproviders.ConstantFloat;
+import dev.krasnokamen.loader.minecraft.FixedEventSound;
 import org.lwjgl.system.MemoryUtil;
 import javax.sound.sampled.AudioFormat;
 
 /** Uses Minecraft's own sound engine, device, master/category volume and positional listener. */
-public final class ScreenAudioSound extends AbstractTickableSoundInstance implements FabricSoundInstance {
+public final class ScreenAudioSound extends FixedEventSound implements FabricSoundInstance {
     private static final Identifier ID = Identifier.fromNamespaceAndPath("krasnokamen_loader", "screen_audio");
     private static final Sound SOUND = new Sound(ID, ConstantFloat.of(1), ConstantFloat.of(1),
             1, Sound.Type.FILE, true, false, 32);
@@ -32,7 +31,7 @@ public final class ScreenAudioSound extends AbstractTickableSoundInstance implem
     private final AudioStream stream;
 
     ScreenAudioSound(ScreenProtocol.Id id, ScreenAudio audio) {
-        super(SoundEvent.createVariableRangeEvent(ID), SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
+        super(SoundEvent.createVariableRangeEvent(ID), SoundSource.BLOCKS);
         this.audio = audio;
         sound = SOUND;
         volume = 1;
@@ -65,7 +64,7 @@ public final class ScreenAudioSound extends AbstractTickableSoundInstance implem
     }
 
     @Override
-    public WeighedSoundEvents getOrResolve(SoundManager manager) {
+    protected WeighedSoundEvents event() {
         return EVENT;
     }
 
