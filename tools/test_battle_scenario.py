@@ -2,7 +2,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from battle_scenario import approach_timeout, battle_model_errors, pack_loaded_once_per_connection
+from battle_scenario import approach_timeout, battle_model_errors, pack_loaded_once_per_connection, seed_report
 
 
 class BattlePackLoadTest(unittest.TestCase):
@@ -54,3 +54,10 @@ class ApproachTimeoutTest(unittest.TestCase):
         self.assertEqual(approach_timeout(0.2), 1)
         # Red before the fix: the loop passed a flat 15 and could wait 14 s past the deadline.
         self.assertLessEqual(approach_timeout(2), 2)
+
+
+class SeedReportTest(unittest.TestCase):
+    def test_receipt_names_the_seed_the_gate_ran(self):
+        self.assertEqual(seed_report(42, 935), {"seed": 42, "world_seed": 935})
+        # Red before the fix: java-battle.json carried no seed, so a red gate was not reproducible.
+        self.assertIn("seed", seed_report(7, 935))

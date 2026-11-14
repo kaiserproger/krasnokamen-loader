@@ -27,6 +27,11 @@ def pack_loaded_once_per_connection(rows: list[dict]) -> bool:
     return len(loaded) == 2 and len(set(loaded)) == 2
 
 
+def seed_report(seed, world_seed):
+    """The seeds a gate run used, recorded in its receipt: a red gate must be reproducible from it."""
+    return {"seed": seed, "world_seed": world_seed}
+
+
 APPROACH_TIMEOUT_SECONDS = 15
 
 
@@ -68,6 +73,8 @@ def run(args):
     from tools.harness.backends.light_wire import LightWireProxy, Reader
 
     report = {"functional_passed": False, "minecraft": "26.1.2", "platform": args.platform,
+              # The seed the gate actually ran, so a red gate is reproducible from its own receipt.
+              **seed_report(args.seed, 935),
               "agent_run": True, "count_per_side": 1500, "checks": {}, "screenshots": [],
               "commands": [], "observations": {},
               "visual_review": {"status": "pending", "required": [
@@ -311,7 +318,7 @@ def run(args):
             # A 15 s approach after the deadline has nearly run out reports "no blue target reached"
             # when the truth is "the approach budget ran out": bound each call by what is left.
             remaining = deadline - time.monotonic()
-            check(remaining > 0, "no blue target reached within the live combat deadline"
+            check(remaining > 0, f"no blue target reached within the live combat deadline on seed {args.seed}"
                   + (f" (approaches: {len(approaches)}, unreachable candidates: {len(unreachable)})" if approaches else ""))
             entities = pov.call_tool("minecraft_list_entities", {"radius": 16, "limit": 512})["entities"]
             blue = [e for e in entities if e.get("off_hand", {}).get("item_model") == "krasnokamen_battle:blue_heater_shield"
