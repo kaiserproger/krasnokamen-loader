@@ -21,6 +21,7 @@ import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -492,7 +493,14 @@ public final class MinecraftClientFacade implements ClientFacade {
             case CONNECT -> {
             }
         }
-        ServerData serverData = new ServerData("Krasnokamen", address, ServerData.Type.OTHER);
+        // A saved entry carries the per-server resource-pack policy (accept/reject and the pack
+        // prompt answer); a fresh ServerData always starts from the global default.
+        ServerList servers = new ServerList(minecraft);
+        servers.load();
+        ServerData savedServer = servers.get(address);
+        ServerData serverData = savedServer != null
+            ? savedServer
+            : new ServerData("Krasnokamen", address, ServerData.Type.OTHER);
         // Vanilla sends handshake intent TRANSFER whenever this is non-null
         // (ConnectScreen: transferState != null). An ordinary join must send
         // LOGIN, so pass null exactly like the vanilla multiplayer screen does;
