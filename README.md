@@ -877,6 +877,11 @@ The shared Loader mixins preserve the humanoid shield-blocking pose for zombie
 renderers (including battle husks). Vanilla's zombie-arm animation otherwise
 overwrites both arms after the humanoid model computes its item poses. Nonblocking
 zombies keep their vanilla arm animation; Java entities and horses keep vanilla models.
+The pose is set after zombie render-state extraction, a method declared by the
+renderer in 26.1.2, 26.2 and 26.3; 26.3 no longer declares its old arm-pose
+override. The Fabric module test checks the mixin's exact selector against the
+configured Minecraft jar and checks that window focus ignores callback arguments;
+a real-client gate is still needed to check application.
 
 The automatic-pack cell uses vanilla's per-server **Server Resource Packs:
 Enabled** preference, stored in the private `servers.dat`. A new/default

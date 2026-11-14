@@ -9,13 +9,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Release held bindings from the game window's focus callback, before any later
- * key-up. Since 26.3 (SDL3) the callback is an instance method of that window.
+ * key-up. Read the resulting window state rather than the version-specific callback arguments.
  */
 @Mixin(Window.class)
 abstract class WindowMixin {
     @Inject(method = "onFocus", at = @At("RETURN"))
-    private void krasnokamen$windowFocus(boolean focused, CallbackInfo callback) {
-        if (!focused) {
+    private void krasnokamen$windowFocus(CallbackInfo callback) {
+        if (!((Window) (Object) this).isFocused()) {
             LoaderMinecraftInput.focusLost();
         }
     }
