@@ -18,6 +18,15 @@ import time
 import zipfile
 
 
+def pack_loaded_once_per_connection(rows: list[dict]) -> bool:
+    """Every client connection answered SuccessfullyLoaded exactly once.
+
+    Two successes on one connection (a reload) or one client answering twice for the other must
+    not pass the gate: the battle armour pack has to arrive on both connections."""
+    loaded = [row.get("connection") for row in rows if row.get("action") == 0]
+    return len(loaded) == 2 and len(set(loaded)) == 2
+
+
 def battle_model_errors(paths):
     """Fail the functional gate on rejected battle models or pack metadata."""
     return {str(path): [line for line in path.read_text(errors="replace").splitlines()
@@ -225,8 +234,9 @@ def run(args):
         shot(cam, "CamSpec-spectator")
         report["checks"]["join_and_kit"] = True
         record("pack-statuses", pack_statuses)
-        report["checks"]["resource_pack"] = sum(row["action"] == 0 for row in pack_statuses) == 2
-        check(report["checks"]["resource_pack"], "both Java clients must report SuccessfullyLoaded")
+        report["checks"]["resource_pack"] = pack_loaded_once_per_connection(pack_statuses)
+        check(report["checks"]["resource_pack"],
+              "each Java client connection must report one SuccessfullyLoaded")
         console("kill PovRed")
         state_until(pov, lambda s: s.get("player", {}).get("health", 20) <= 0, "death")
         shot(pov, "PovRed-death")

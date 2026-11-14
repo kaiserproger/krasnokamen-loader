@@ -2,7 +2,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from battle_scenario import battle_model_errors
+from battle_scenario import battle_model_errors, pack_loaded_once_per_connection
 
 
 class BattlePackLoadTest(unittest.TestCase):
@@ -29,3 +29,19 @@ class BattlePackLoadTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PackLoadedOncePerConnectionTest(unittest.TestCase):
+    def test_two_connections_one_success_each_pass(self):
+        self.assertTrue(pack_loaded_once_per_connection([
+            {"connection": 11, "action": 0}, {"connection": 12, "action": 0}]))
+
+    def test_one_connection_loading_twice_does_not_prove_the_other(self):
+        # Red before the fix: the old count-based check summed two successes.
+        self.assertFalse(pack_loaded_once_per_connection([
+            {"connection": 11, "action": 0}, {"connection": 11, "action": 0}]))
+
+    def test_a_declined_or_missing_answer_fails(self):
+        self.assertFalse(pack_loaded_once_per_connection([
+            {"connection": 11, "action": 0}, {"connection": 12, "action": 1}]))
+        self.assertFalse(pack_loaded_once_per_connection([{"connection": 11, "action": 0}]))
