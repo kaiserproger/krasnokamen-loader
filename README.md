@@ -17,7 +17,7 @@
 </p>
 
 Optional **client-side mod** for [Krasnokamen](https://github.com/kaiserproger/krasnokamen)
-servers whose plugins — WebAssembly components of the `krasnokamen:plugin` `0.8.0`
+servers whose plugins — WebAssembly components of the `krasnokamen:plugin` `0.9.0`
 contract — provide custom views, HUDs, assets, sounds,
 items and blocks. If the server uses only server-side plugins, an ordinary
 vanilla client is enough.
@@ -45,7 +45,8 @@ allows verification with `sha256sum -c SHA256SUMS --ignore-missing` on Linux;
 on Windows, compare `Get-FileHash FILE.jar -Algorithm SHA256` with that file.
 
 Current Loader protocol is **3** with client artifact index **schema 2**. The
-server plugin frontend is the WebAssembly component API **0.8.0** only; the
+server plugin frontend is the WebAssembly component API **0.9.0** only
+(`krasnokamen:plugin@0.9.0`, `crates/mc-script/wit/plugin.wit`); the
 Luau `0.6.0` frontend is retired, and the plugin API version does not change
 the client wire protocol or artifact schema. These are alpha contracts:
 match the server's declared compatibility, not just similar version numbers.
