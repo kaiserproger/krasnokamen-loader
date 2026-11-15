@@ -68,6 +68,10 @@ tasks.processResources {
         expand("fabricLoaderVersion" to fabricLoaderVersion.get(), "minecraftVersion" to minecraftVersion.get())
     }
 }
+tasks.test {
+    systemProperty("loader.mixin.resources", layout.buildDirectory.dir("resources/main").get().asFile.absolutePath)
+}
+
 
 tasks.named<JavaExec>("runClientMcp") {
     group = "verification"
