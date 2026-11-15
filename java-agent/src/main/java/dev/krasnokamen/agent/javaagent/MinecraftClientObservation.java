@@ -311,6 +311,8 @@ final class MinecraftClientObservation {
             passengers.add(passenger.getUUID().toString());
         }
         value.add("passengers", passengers);
+        Entity vehicle = entity.getVehicle();
+        value.addProperty("vehicle_id", vehicle == null ? null : vehicle.getId());
         value.addProperty("crouching", entity.isCrouching());
         value.addProperty("sprinting", entity.isSprinting());
         value.addProperty("in_water", entity.isInWater());
@@ -338,6 +340,9 @@ final class MinecraftClientObservation {
         velocityJson.addProperty("z", velocity.z);
         value.add("velocity", velocityJson);
         if (entity instanceof LivingEntity living) {
+            value.add("main_hand", item(living.getMainHandItem()));
+            value.add("off_hand", item(living.getOffhandItem()));
+            value.addProperty("blocking", living.isBlocking());
             value.addProperty("health", living.getHealth());
             value.addProperty("max_health", living.getMaxHealth());
             value.addProperty("walk_position", living.walkAnimation.position());

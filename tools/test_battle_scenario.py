@@ -27,24 +27,49 @@ class BattlePackLoadTest(unittest.TestCase):
             self.assertEqual(battle_model_errors([log]), {str(log): []})
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class PackLoadedOncePerConnectionTest(unittest.TestCase):
+    @staticmethod
+    def connection(connection, actor, actions=(3, 4, 0)):
+        # Login is retained even if a connection never answers the pack.
+        return [{"connection": connection, "actor": actor, "action": None}] + [
+            {"connection": connection, "actor": actor, "action": action} for action in actions]
+
     def test_two_connections_one_success_each_pass(self):
-        self.assertTrue(pack_loaded_once_per_connection([
+        self.assertTrue(pack_loaded_once_per_connection(
+            self.connection(11, "PovRed") + self.connection(12, "CamSpec")))
+
+    def test_reconnects_must_all_load_once(self):
+        self.assertTrue(pack_loaded_once_per_connection(
+            self.connection(11, "PovRed") + self.connection(12, "CamSpec")
+            + self.connection(13, "PovRed")))
+
+    def test_successful_pair_does_not_hide_declined_third_connection(self):
+        self.assertFalse(pack_loaded_once_per_connection(
+            self.connection(11, "PovRed") + self.connection(12, "CamSpec")
+            + self.connection(13, "PovRed", (1,))))
+
+    def test_one_actor_cannot_answer_for_the_other(self):
+        self.assertFalse(pack_loaded_once_per_connection(
+            self.connection(11, "PovRed") + self.connection(12, "PovRed")))
+
+    def test_missing_failed_duplicate_or_nonterminal_success_fails(self):
+        for actions in ((), (3,), (1,), (2,), (5,), (6,), (7,),
+                        (0, 0), (1, 0), (2, 0), (0, 3)):
+            with self.subTest(actions=actions):
+                self.assertFalse(pack_loaded_once_per_connection(
+                    self.connection(11, "PovRed") + self.connection(12, "CamSpec", actions)))
+        self.assertFalse(pack_loaded_once_per_connection(self.connection(11, "PovRed")))
+
+    def test_unbound_or_changed_actor_fails(self):
+        self.assertFalse(pack_loaded_once_per_connection([
             {"connection": 11, "action": 0}, {"connection": 12, "action": 0}]))
+        rows = self.connection(11, "PovRed") + self.connection(12, "CamSpec")
+        rows[-1]["actor"] = "PovRed"
+        self.assertFalse(pack_loaded_once_per_connection(rows))
 
-    def test_one_connection_loading_twice_does_not_prove_the_other(self):
-        # Red before the fix: the old count-based check summed two successes.
-        self.assertFalse(pack_loaded_once_per_connection([
-            {"connection": 11, "action": 0}, {"connection": 11, "action": 0}]))
-
-    def test_a_declined_or_missing_answer_fails(self):
-        self.assertFalse(pack_loaded_once_per_connection([
-            {"connection": 11, "action": 0}, {"connection": 12, "action": 1}]))
-        self.assertFalse(pack_loaded_once_per_connection([{"connection": 11, "action": 0}]))
+    def test_unrelated_actor_cannot_supply_missing_success(self):
+        self.assertFalse(pack_loaded_once_per_connection(
+            self.connection(11, "PovRed") + self.connection(12, "Other")))
 
 
 class ApproachTimeoutTest(unittest.TestCase):
@@ -61,3 +86,7 @@ class SeedReportTest(unittest.TestCase):
         self.assertEqual(seed_report(42, 935), {"seed": 42, "world_seed": 935})
         # Red before the fix: java-battle.json carried no seed, so a red gate was not reproducible.
         self.assertIn("seed", seed_report(7, 935))
+
+
+if __name__ == '__main__':
+    unittest.main()

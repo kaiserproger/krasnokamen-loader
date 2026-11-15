@@ -870,6 +870,10 @@ Java scenario. Each run uses clean game directories, the ordinary server-pushed
 resource pack, a copied battle world and the live `PovRed`/`CamSpec` roles.
 Received entity observations include hands, item models, blocking state and
 vehicle identity so combat targets and horse riders are not guessed from proximity.
+Hands use the inventory stack shape (`item_id`, `count`, optional `item_model`);
+empty hands are air/count zero. `vehicle_id` is the received signed network ID
+or null, and living `blocking` comes from the client's `isBlocking()` state.
+Fabric and NeoForge compile this same observation serializer.
 Functional assertions and retained screenshots are distinct: equipment, horse/rider
 and raised-shield rendering still require looking at the frames in the report.
 
@@ -889,6 +893,10 @@ Enabled** preference, stored in the private `servers.dat`. A new/default
 server entry remains **Prompt** and must not be reported as automatic.
 MCP connects load matching vanilla server entries rather than replacing their
 pack policy with an unsaved default `ServerData`.
+Pack responses are bound to the login actor (`PovRed` or `CamSpec`). Every login,
+including a reconnect or a connection that never answers, must end in exactly one
+SuccessfullyLoaded response; declines, failures and responses after success fail
+the gate. Two successes cannot conceal a third declined connection.
 The Loader MCP packet hook publishes applied health packets as well as tick/state
 events. Respawn confirmation requires a fresh authoritative health event; an
 ordinary tick alone cannot satisfy that fence.

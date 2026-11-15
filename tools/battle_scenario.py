@@ -19,12 +19,28 @@ import zipfile
 
 
 def pack_loaded_once_per_connection(rows: list[dict]) -> bool:
-    """Every client connection answered SuccessfullyLoaded exactly once.
+    """Both actors loaded once on every login, including reconnects.
 
-    Two successes on one connection (a reload) or one client answering twice for the other must
-    not pass the gate: the battle armour pack has to arrive on both connections."""
-    loaded = [row.get("connection") for row in rows if row.get("action") == 0]
-    return len(loaded) == 2 and len(set(loaded)) == 2
+    Rows include a login marker (action=None), so an unanswered connection
+    cannot disappear. Status order is wire order, not a count of successes.
+    """
+    connections = {}
+    for row in rows:
+        connection, actor = row.get("connection"), row.get("actor")
+        if connection is None or actor not in ("PovRed", "CamSpec"):
+            return False
+        owner, actions = connections.setdefault(connection, (actor, []))
+        if owner != actor:
+            return False
+        action = row.get("action")
+        if action is not None:
+            actions.append(action)
+    return (
+        {actor for actor, _ in connections.values()} == {"PovRed", "CamSpec"}
+        and all(actions and actions[-1] == 0 and actions.count(0) == 1
+                and all(action in (0, 3, 4) for action in actions)
+                for _, actions in connections.values())
+    )
 
 
 def seed_report(seed, world_seed):
@@ -175,9 +191,20 @@ def run(args):
         xvfb, display, log = runtime.start_xvfb(artifact)
         logs.append(log)
         pack_statuses = []
+        handshakes, actors = set(), {}
         def client_packet(wire, phase, packet, payload):
+            connection = id(wire)
+            if phase == "login" and packet == 0:
+                if connection not in handshakes:
+                    handshakes.add(connection)
+                    return
+                reader = Reader(payload)
+                actor = reader.take(reader.varint()).decode("utf-8")
+                actors[connection] = actor
+                pack_statuses.append({"connection": connection, "actor": actor, "action": None})
             if phase == "configuration" and packet == 6:
-                pack_statuses.append({"connection": id(wire), "pack_id": payload[:16].hex(),
+                pack_statuses.append({"connection": connection, "actor": actors.get(connection),
+                                      "pack_id": payload[:16].hex(),
                                       "action": Reader(payload, 16).varint()})
         proxy = LightWireProxy(port, artifact, client_packet_observer=client_packet, decode_light=False)
         for name in ("PovRed", "CamSpec"):
@@ -397,6 +424,10 @@ def run(args):
         (artifact / "povred-hits.json").write_text(counter.stdout)
         hits = record("server-damage-events", json.loads(counter.stdout))
         report["checks"]["server_damage_events"] = hits.get("soldier_hits", 0) > 0
+        record("pack-statuses", pack_statuses)
+        report["checks"]["resource_pack"] = pack_loaded_once_per_connection(pack_statuses)
+        check(report["checks"]["resource_pack"],
+              "each intended actor's connection must end in one successful pack load, without failures")
         report["functional_passed"] = all(report["checks"].values())
         return 0 if report["functional_passed"] else 1
     except Exception as error:
