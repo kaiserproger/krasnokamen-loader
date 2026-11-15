@@ -8,8 +8,8 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-/** Adds the event bridge to the plain Java client's actual tick, without a mod loader. */
-final class VanillaTickTransformer implements ClassFileTransformer {
+/** Hooks the plain Java client's extraction and rendering of the same frame. */
+final class VanillaFrameTransformer implements ClassFileTransformer {
     @Override
     public byte[] transform(Module module, ClassLoader loader, String name, Class<?> redefined,
                             ProtectionDomain domain, byte[] bytes) {
@@ -18,7 +18,7 @@ final class VanillaTickTransformer implements ClassFileTransformer {
         }
         ClassReader reader = new ClassReader(bytes);
         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
-        boolean[] found = {false, false, false};
+        boolean[] found = {false, false};
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(int access, String method, String descriptor,
@@ -35,10 +35,10 @@ final class VanillaTickTransformer implements ClassFileTransformer {
                                 String hook = null;
                                 if (called.equals("extract")
                                         && desc.equals("(Lnet/minecraft/client/DeltaTracker;Z)V")) {
-                                    found[1] = true;
+                                    found[0] = true;
                                     hook = "afterExtract";
                                 } else if (called.equals("render") && desc.equals("()V")) {
-                                    found[2] = true;
+                                    found[1] = true;
                                     hook = "afterRender";
                                 }
                                 if (hook != null) {
@@ -51,26 +51,11 @@ final class VanillaTickTransformer implements ClassFileTransformer {
                         }
                     };
                 }
-                if (!method.equals("tick") || !descriptor.equals("()V") || (access & Opcodes.ACC_STATIC) != 0) {
-                    return delegate;
-                }
-                found[0] = true;
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
-                    @Override
-                    public void visitInsn(int opcode) {
-                        if (opcode == Opcodes.RETURN) {
-                            super.visitVarInsn(Opcodes.ALOAD, 0);
-                            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                                "dev/krasnokamen/agent/javaagent/VanillaTickEvents", "afterTick",
-                                "(Lnet/minecraft/client/Minecraft;)V", false);
-                        }
-                        super.visitInsn(opcode);
-                    }
-                };
+                return delegate;
             }
         }, 0);
-        if (!found[0] || !found[1] || !found[2]) {
-            throw new IllegalStateException("plain client is missing a tick or frame capture hook");
+        if (!found[0] || !found[1]) {
+            throw new IllegalStateException("plain client is missing a frame capture hook");
         }
         return writer.toByteArray();
     }

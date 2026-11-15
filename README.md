@@ -674,6 +674,11 @@ Read-only tools:
   state properties, rechecking only after applied client state events.
 - `minecraft_scan_blocks`: an inclusive loaded box with the same fields, capped at 4096 cells.
 - `minecraft_list_entities`: visible entities within 128 blocks, capped at 512. Entity IDs are signed 32-bit values, including server-sent presentation entities with negative IDs. Living entities include their observed walk position and speed for gait comparisons.
+- Plain-Java screenshots freeze the `.gait.json` living-entity inputs immediately
+  after frame extraction on the render thread, then capture that same frame after
+  rendering. PNG write completion only publishes the frozen sample; it never reads
+  the renderer's cleared/reused state from the IO worker. The premain frame hooks
+  are enabled by `krasnokamen.client.vanillaEvents`, without changing modded capture.
 - `minecraft_read_recipe_book`: bounded recipe display IDs accepted into the
   real client's recipe book.
 - `minecraft_wait_for_visible_entity`: wait for an entity type within a bounded radius.

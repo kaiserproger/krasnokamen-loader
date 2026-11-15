@@ -1457,18 +1457,21 @@ public final class MinecraftClientFacade implements ClientFacade {
         // A plain (vanillaEvents) client keeps the render-state gait sidecar: sample the
         // living-entity render inputs of the frame this screenshot renders.
         boolean vanillaFrame = Boolean.getBoolean("krasnokamen.client.vanillaEvents");
-        CompletableFuture<JsonArray> completion = new CompletableFuture<>();
-        new MinecraftClientExecutor().callOnClientThread(() -> {
-            Minecraft minecraft = Minecraft.getInstance();
-            Screenshot.grab(
-                directory.toFile(),
-                path.getFileName().toString(),
-                MinecraftGuiAccess.mainRenderTarget(minecraft),
-                1,
-                message -> completion.complete(vanillaFrame ? renderedGait(minecraft) : new JsonArray())
-            );
-            return null;
-        });
+        CompletableFuture<JsonArray> completion = vanillaFrame
+            ? VanillaFrameCapture.request(directory, path) : new CompletableFuture<>();
+        if (!vanillaFrame) {
+            new MinecraftClientExecutor().callOnClientThread(() -> {
+                Minecraft minecraft = Minecraft.getInstance();
+                Screenshot.grab(
+                    directory.toFile(),
+                    path.getFileName().toString(),
+                    MinecraftGuiAccess.mainRenderTarget(minecraft),
+                    1,
+                    message -> completion.complete(new JsonArray())
+                );
+                return null;
+            });
+        }
         final JsonArray gait;
         try {
             gait = completion.get(30, TimeUnit.SECONDS);

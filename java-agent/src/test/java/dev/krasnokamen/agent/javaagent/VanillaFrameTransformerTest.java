@@ -11,17 +11,17 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-final class VanillaTickTransformerTest {
-    private static byte[] minecraft(boolean tick) {
+final class VanillaFrameTransformerTest {
+    private static byte[] minecraft(boolean frame) {
         ClassWriter writer = new ClassWriter(0);
         writer.visit(Opcodes.V25, Opcodes.ACC_PUBLIC, "net/minecraft/client/Minecraft", null,
             "java/lang/Object", null);
-        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, tick ? "tick" : "other", "()V", null, null);
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "tick", "()V", null, null);
         method.visitCode();
         method.visitInsn(Opcodes.RETURN);
         method.visitMaxs(0, 1);
         method.visitEnd();
-        method = writer.visitMethod(Opcodes.ACC_PUBLIC, "renderFrame", "(Z)V", null, null);
+        method = writer.visitMethod(Opcodes.ACC_PUBLIC, frame ? "renderFrame" : "other", "(Z)V", null, null);
         method.visitCode();
         method.visitInsn(Opcodes.ACONST_NULL);
         method.visitInsn(Opcodes.ACONST_NULL);
@@ -39,8 +39,8 @@ final class VanillaTickTransformerTest {
     }
 
     @Test
-    void instrumentsOnlyMinecraftTickAndRejectsMissingHook() {
-        VanillaTickTransformer transformer = new VanillaTickTransformer();
+    void instrumentsOnlyMinecraftFrameAndRejectsMissingHook() {
+        VanillaFrameTransformer transformer = new VanillaFrameTransformer();
         byte[] original = minecraft(true);
         assertNull(transformer.transform(null, null, "other/Class", null, null, original));
         assertThrows(IllegalStateException.class, () -> transformer.transform(null, null,
@@ -53,9 +53,7 @@ final class VanillaTickTransformerTest {
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override
                     public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean isInterface) {
-                        if (name.equals("tick") && opcode == Opcodes.INVOKESTATIC
-                                && owner.equals("dev/krasnokamen/agent/javaagent/VanillaTickEvents")
-                                && method.equals("afterTick")) {
+                        if (name.equals("tick") && opcode == Opcodes.INVOKESTATIC) {
                             calls[0]++;
                         }
                         if (name.equals("renderFrame") && opcode == Opcodes.INVOKESTATIC
@@ -67,7 +65,7 @@ final class VanillaTickTransformerTest {
                 };
             }
         }, 0);
-        assertEquals(1, calls[0]);
+        assertEquals(0, calls[0]);
         assertEquals(1, calls[1]);
         assertEquals(1, calls[2]);
     }
