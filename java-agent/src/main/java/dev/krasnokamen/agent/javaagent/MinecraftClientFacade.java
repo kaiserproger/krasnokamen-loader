@@ -654,13 +654,23 @@ public final class MinecraftClientFacade implements ClientFacade {
         ScenarioEntityObservation entity = executor.callOnClientThread(
             () -> entityObservationOnClientThread(entityId)
         );
-        MinecraftScenarioClient client = new MinecraftScenarioClient(executor);
+        return approachEntity(new MinecraftScenarioClient(executor), entity, timeout);
+    }
+
+    static JsonObject approachEntity(
+        ScenarioClient client, ScenarioEntityObservation entity, java.time.Duration timeout
+    ) throws Exception {
         boolean inReach = client.approachEntity(entity, timeout);
         JsonObject result = new JsonObject();
-        result.addProperty("entity_id", entityId);
+        result.addProperty("entity_id", entity.entityId());
         result.addProperty("entity_uuid", entity.entityUuid().toString());
         result.addProperty("entity_type", entity.entityType());
         result.addProperty("in_reach", inReach);
+        JsonArray telemetry = new JsonArray();
+        for (ScenarioCombatRecord record : client.drainCombatTelemetry()) {
+            telemetry.add(record.line());
+        }
+        result.add("combat_telemetry", telemetry);
         return result;
     }
 
@@ -727,8 +737,7 @@ public final class MinecraftClientFacade implements ClientFacade {
                     minecraft.player.horizontalCollision
                 )
             );
-            minecraft.gameMode.attack(minecraft.player, entity);
-            MinecraftActionAccess.swing(minecraft.player, InteractionHand.MAIN_HAND);
+            MinecraftActionAccess.attack(minecraft);
             return new EntityAttackDispatch(
                 minecraft.level,
                 healthBefore,

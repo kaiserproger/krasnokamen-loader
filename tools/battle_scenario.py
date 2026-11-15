@@ -59,6 +59,20 @@ def approach_timeout(seconds_left: float) -> int:
     return max(1, min(APPROACH_TIMEOUT_SECONDS, int(seconds_left)))
 
 
+def live_player(state, label):
+    """A lost client is a lifecycle failure, not an absent dictionary key."""
+    player = state.get("player")
+    if not state.get("in_play") or not isinstance(player, dict):
+        raise RuntimeError(f"{label}: client left Play or has no player; screen={state.get('screen')}")
+    return player
+
+
+def complete_after_capture(battle, capture):
+    """Never release the server's completion barrier on a failed capture."""
+    capture()
+    (battle / "completion.done").touch(exist_ok=False)
+
+
 def battle_model_errors(paths):
     """Fail the functional gate on rejected battle models or pack metadata."""
     return {str(path): [line for line in path.read_text(errors="replace").splitlines()
@@ -150,13 +164,13 @@ def run(args):
 
     def face_target(client, target, label, height):
         # Recenter after chunk/renderer settling: cavalry may have moved meanwhile.
-        camera = runtime.current_client_state(client, 30)["player"]
+        camera = live_player(runtime.current_client_state(client, 30), label)
         dx, dz = target["x"] - camera["x"], target["z"] - camera["z"]
         yaw = math.degrees(math.atan2(-dx, dz))
         pitch = math.degrees(math.atan2(camera["y"] + 1.62 - target["y"] - height, math.hypot(dx, dz)))
         console(f'tp CamSpec {camera["x"]} {camera["y"]} {camera["z"]} {yaw} {pitch}')
-        state_until(client, lambda s: abs((s["player"]["yaw"] - yaw + 180) % 360 - 180) < 1
-                    and abs(s["player"]["pitch"] - pitch) < 1, label)
+        state_until(client, lambda s: abs((live_player(s, label)["yaw"] - yaw + 180) % 360 - 180) < 1
+                    and abs(live_player(s, label)["pitch"] - pitch) < 1, label)
         client.call_tool("minecraft_wait_ticks", {"ticks": 2})
 
     try:
@@ -180,6 +194,7 @@ def run(args):
                    "--seed", str(args.seed), "--scenario", "field-10k", "--count", "1500",
                    "--view-distance", "18", "--run-dir", str(battle), "--duration", str(args.duration),
                    "--port", str(port), "--dashboard-port", str(dashboard), "--console-fifo",
+                   "--completion-timeout", "240",
                    "--live-player", "PovRed:red", "--live-spectator", "CamSpec", "--live-timeout", "3600",
                    "--resource-pack-url", url, "--resource-pack-sha1", sha1]
         report["commands"].append(command)
@@ -301,7 +316,7 @@ def run(args):
         halberds = [e for e in weapon_entities if e.get("main_hand", {}).get("item_model") == "krasnokamen_battle:iron_halberd"
                     and e.get("entity_type") != "minecraft:player"]
         if not halberds:
-            player = runtime.current_client_state(pov, 30)["player"]
+            player = live_player(runtime.current_client_state(pov, 30), "rear-rank-camera")
             rear_x, rear_z = player["x"] + 32, player["z"] + 24
             console(f'tp CamSpec {rear_x} {player["y"] + 10} {rear_z} 45 25')
             state = state_until(cam, lambda s: abs(s.get("player", {}).get("x", 0) - rear_x) < 1, "rear-rank-camera")
@@ -357,12 +372,24 @@ def run(args):
                 continue
             target = blue[0]
             if target["distance"] > 4:
+                before_approach = pov.call_tool("minecraft_observe")
                 approached = pov.call_tool("minecraft_approach_entity", {
                     "entity_id": target["entity_id"], "timeout_seconds": approach_timeout(remaining)})
+                approached["before"] = {"player": before_approach.get("player"), "target": target}
+                after_approach = pov.call_tool("minecraft_observe")
+                approached["after"] = after_approach
                 approaches.append(approached)
                 record("approaches", approaches)
                 if not approached["in_reach"]:
                     # Match the existing survival scenario: cliffs are not an arrival.
+                    player = after_approach.get("player")
+                    if player is not None:
+                        x, y, z = (math.floor(player[axis]) for axis in ("x", "y", "z"))
+                        approached["terrain"] = pov.call_tool("minecraft_scan_blocks", {
+                            "min_x": x - 4, "max_x": x + 4,
+                            "min_y": y - 4, "max_y": y + 4,
+                            "min_z": z - 4, "max_z": z + 4})
+                        record("approaches", approaches)
                     unreachable.add(target["entity_id"])
                     continue
             attack = {key: target[key] for key in ("entity_id", "entity_uuid", "entity_type")}
@@ -417,7 +444,7 @@ def run(args):
                 break
             state = runtime.next_client_state(cam, state, deadline)
         face_target(cam, observed_guard, "shield-final-frame", 1.1)
-        shot(cam, "raised-shield-poses")
+        complete_after_capture(battle, lambda: shot(cam, "raised-shield-poses"))
         rc = server.wait(timeout=args.duration + 240)
         check(rc == 0, f"battle runner failed: {rc}")
         counter = subprocess.run([sys.executable, str(args.hit_counter), str(battle)], capture_output=True, text=True, check=True)

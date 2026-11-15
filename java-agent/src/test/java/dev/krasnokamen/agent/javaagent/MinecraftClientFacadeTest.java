@@ -16,6 +16,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MinecraftClientFacadeTest {
     @Test
+    void approachRetainsCombatDiagnosticsForBothArrivalAndRefusal() throws Exception {
+        ScenarioEntityObservation entity = new ScenarioEntityObservation(
+            "minecraft:husk", 42, java.util.UUID.randomUUID(), 8.0, 64.0, -3.0, 9.0, null);
+        for (boolean arrived : new boolean[] {false, true}) {
+            ScenarioClient client = org.mockito.Mockito.mock(ScenarioClient.class);
+            Duration timeout = Duration.ofSeconds(15);
+            org.mockito.Mockito.when(client.approachEntity(entity, timeout)).thenReturn(arrived);
+            org.mockito.Mockito.when(client.drainCombatTelemetry()).thenReturn(List.of(
+                new ScenarioCombatRecord("engagement move_blocked=7", false, false)));
+            var result = MinecraftClientFacade.approachEntity(client, entity, timeout);
+            assertEquals(arrived, result.get("in_reach").getAsBoolean());
+            assertEquals(42, result.get("entity_id").getAsInt());
+            assertEquals("engagement move_blocked=7",
+                result.getAsJsonArray("combat_telemetry").get(0).getAsString());
+            org.mockito.Mockito.verify(client).drainCombatTelemetry();
+        }
+    }
+
+    @Test
     void repeatedConnectKeepsTheCurrentServerAndRejectsAnImplicitSwitch() {
         assertEquals(
             MinecraftClientFacade.ConnectDecision.CONNECT,
