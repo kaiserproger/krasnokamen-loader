@@ -87,6 +87,25 @@ final class MinecraftAttackInputTest {
     }
 
     @Test
+    void usingItemRefusesBothOrdinaryAndPiercingAttacksUntilReleased() throws Exception {
+        for (boolean spear : new boolean[] {false, true}) {
+            ItemStack stack = mock(ItemStack.class);
+            if (spear) when(stack.get(DataComponents.PIERCING_WEAPON)).thenReturn(mock(PiercingWeapon.class));
+            Entity target = mock(Entity.class);
+            Minecraft minecraft = client(stack, target);
+            when(minecraft.player.isUsingItem()).thenReturn(true);
+            assertFalse(MinecraftActionAccess.attack(minecraft));
+            verifyNoInteractions(minecraft.gameMode);
+            verify(minecraft.player, never()).raycastHitResult(anyFloat(), any());
+
+            when(minecraft.player.isUsingItem()).thenReturn(false);
+            MinecraftActionAccess.attack(minecraft);
+            assertEquals(1, mockingDetails(minecraft.gameMode).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals(spear ? "piercingAttack" : "attack")).count());
+        }
+    }
+
+    @Test
     void vanillaCooldownRefusalDoesNotSendAnAttack() throws Exception {
         Entity target = mock(Entity.class);
         ItemStack stack = mock(ItemStack.class);

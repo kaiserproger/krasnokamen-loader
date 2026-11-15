@@ -275,6 +275,9 @@ The plain-vanilla `java-agent` instruments the pinned client at premain to
 publish tick, lifecycle and applied-packet events to its automation bridge.
 Fabric and other platform agents use their own runtime hooks instead; the
 vanilla transformer is not installed by `startFromRuntime`.
+The MCP single-attack helper follows vanilla's using-item input gate: holding
+a shield or using another item suppresses left-click attacks, including spear
+piercing attacks. Releasing use restores the ordinary vanilla cooldown path.
 
 <details>
 <summary>Developer reference: Loader protocol and content activation</summary>

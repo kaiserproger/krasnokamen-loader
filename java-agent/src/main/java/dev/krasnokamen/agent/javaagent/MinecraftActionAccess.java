@@ -29,6 +29,8 @@ final class MinecraftActionAccess {
 
     /** Refresh vanilla's raycast, then use its complete left-click path (including spears). */
     static boolean attack(Minecraft minecraft) {
+        // handleKeybinds gates startAttack outside startAttack itself.
+        if (minecraft.player.isUsingItem()) return false;
         try {
             Attack.PICK.invokeExact(minecraft, 1.0F);
             return (boolean) Attack.START.invokeExact(minecraft);
