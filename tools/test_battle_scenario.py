@@ -2,7 +2,40 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from battle_scenario import approach_timeout, battle_model_errors, pack_loaded_once_per_connection, seed_report
+from battle_scenario import (
+    approach_timeout, battle_model_errors, complete_after_capture, live_player,
+    pack_loaded_once_per_connection, seed_report,
+)
+
+
+class CaptureLifecycleTest(unittest.TestCase):
+    def test_missing_player_reports_the_lifecycle_and_capture(self):
+        for state in ({}, {"in_play": False, "screen": {"title": "Disconnected"}},
+                      {"in_play": True, "player": None}):
+            with self.subTest(state=state):
+                with self.assertRaisesRegex(RuntimeError, "shield-final-frame: client left Play or has no player"):
+                    live_player(state, "shield-final-frame")
+        player = {"x": 1, "y": 2, "z": 3}
+        self.assertIs(live_player({"in_play": True, "player": player}, "camera"), player)
+
+    def test_release_follows_successful_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            battle = Path(directory)
+            def capture():
+                self.assertFalse((battle / "completion.done").exists())
+                (battle / "shield.png").write_bytes(b"captured")
+            complete_after_capture(battle, capture)
+            self.assertTrue((battle / "shield.png").exists())
+            self.assertTrue((battle / "completion.done").exists())
+
+    def test_failed_capture_never_releases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            battle = Path(directory)
+            def capture():
+                raise RuntimeError("client disconnected during screenshot")
+            with self.assertRaisesRegex(RuntimeError, "disconnected"):
+                complete_after_capture(battle, capture)
+            self.assertFalse((battle / "completion.done").exists())
 
 
 class BattlePackLoadTest(unittest.TestCase):

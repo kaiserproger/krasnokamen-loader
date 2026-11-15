@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -23,6 +24,31 @@ final class MinecraftActionAccess {
             ACCESS.swing().invokeExact((Object) player, (Object) hand);
         } catch (Throwable failure) {
             throw new IllegalStateException("swinging native player hand", failure);
+        }
+    }
+
+    /** Refresh vanilla's raycast, then use its complete left-click path (including spears). */
+    static boolean attack(Minecraft minecraft) {
+        try {
+            Attack.PICK.invokeExact(minecraft, 1.0F);
+            return (boolean) Attack.START.invokeExact(minecraft);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("dispatching native attack input", failure);
+        }
+    }
+
+    private static final class Attack {
+        static final MethodHandle PICK;
+        static final MethodHandle START;
+
+        static {
+            try {
+                var lookup = MethodHandles.privateLookupIn(Minecraft.class, MethodHandles.lookup());
+                PICK = lookup.findVirtual(Minecraft.class, "pick", MethodType.methodType(void.class, float.class));
+                START = lookup.findVirtual(Minecraft.class, "startAttack", MethodType.methodType(boolean.class));
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException("unsupported native attack input API", failure);
+            }
         }
     }
 

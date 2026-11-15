@@ -876,6 +876,23 @@ or null, and living `blocking` comes from the client's `isBlocking()` state.
 Fabric and NeoForge compile this same observation serializer.
 Functional assertions and retained screenshots are distinct: equipment, horse/rider
 and raised-shield rendering still require looking at the frames in the report.
+The scenario requests the core runner's bounded completion barrier: recording
+may end first, but the server keeps running until the final shield screenshot
+succeeds and the scenario creates `battle/completion.done`. The runner exposes
+`battle/completion.ready` after recording and fails closed after 240 seconds
+without completion. A missing camera player reports a lifecycle error, not a
+dictionary-key failure.
+Approach receipts retain the target, before/after player observations, the
+existing combat engagement diagnostics, and nearby blocks on refusal. The
+90-second combat deadline and ordinary survival movement remain unchanged;
+these observations distinguish terrain/reach failures from capture shutdown.
+Single entity attacks refresh vanilla's raycast and call its native `startAttack`
+input path. This preserves spear piercing dispatch and cooldown checks; a plain
+entity-attack packet with a piercing weapon is rejected by vanilla 26.1.2 too.
+`MinecraftAttackInputTest` executes the actual vanilla input methods with mocked
+world/network collaborators. The default test runtime uses 26.3/authlib 10.0.77;
+for retained 26.1.2, pass `-Pkrasnokamen.testClientJar=/absolute/26.1.2/client.jar`
+and `-Pkrasnokamen.testAuthlibVersion=7.0.63` (26.2 uses authlib 9.0.75).
 
 The shared Loader mixins preserve the humanoid shield-blocking pose for zombie
 renderers (including battle husks). Vanilla's zombie-arm animation otherwise
