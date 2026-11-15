@@ -67,8 +67,10 @@ def live_player(state, label):
     return player
 
 
-def complete_after_capture(battle, capture):
+def complete_after_capture(battle, capture, wait_ready=None):
     """Never release the server's completion barrier on a failed capture."""
+    if wait_ready is not None:
+        wait_ready()
     capture()
     (battle / "completion.done").touch(exist_ok=False)
 
@@ -444,7 +446,23 @@ def run(args):
                 break
             state = runtime.next_client_state(cam, state, deadline)
         face_target(cam, observed_guard, "shield-final-frame", 1.1)
-        complete_after_capture(battle, lambda: shot(cam, "raised-shield-poses"))
+        def wait_capture_ready():
+            marker = battle / "completion.ready"
+            def ready():
+                check(server.poll() is None, "java-battle-end-camera assertion failed: server_alive_before_capture")
+                check("stop" not in (battle / "commands.txt").read_text().splitlines(),
+                      "java-battle-end-camera assertion failed: server_alive_before_capture")
+                return marker.is_file(), None
+            runtime.wait_for_path_condition(marker, args.duration + 240, ready)
+            record("end-camera-ready", {"marker": str(marker), "server_alive": True})
+
+        def final_capture():
+            shot(cam, "raised-shield-poses")
+            if args.late_capture:
+                live_player(runtime.current_client_state(cam, 30), "end-camera-captured")
+                report["checks"]["late_camera_capture"] = True
+        complete_after_capture(battle, final_capture,
+                               wait_capture_ready if args.late_capture else None)
         rc = server.wait(timeout=args.duration + 240)
         check(rc == 0, f"battle runner failed: {rc}")
         counter = subprocess.run([sys.executable, str(args.hit_counter), str(battle)], capture_output=True, text=True, check=True)
@@ -499,6 +517,8 @@ def main():
     parser.add_argument("--hit-counter", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--duration", type=int, default=150)
+    parser.add_argument("--late-capture", action="store_true",
+                        help="wait for completion.ready before the final screenshot and completion.done")
     parser.add_argument("--pack-preference", choices=("prompt", "enabled"), default="enabled")
     return run(parser.parse_args())
 

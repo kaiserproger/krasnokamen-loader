@@ -28,6 +28,30 @@ class CaptureLifecycleTest(unittest.TestCase):
             self.assertTrue((battle / "shield.png").exists())
             self.assertTrue((battle / "completion.done").exists())
 
+    def test_late_capture_waits_before_screenshot_and_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            battle = Path(directory)
+            events = []
+            def ready():
+                self.assertFalse((battle / "completion.done").exists())
+                events.append("ready")
+            def capture():
+                self.assertEqual(events, ["ready"])
+                self.assertFalse((battle / "completion.done").exists())
+                events.append("capture")
+            complete_after_capture(battle, capture, ready)
+            self.assertEqual(events, ["ready", "capture"])
+            self.assertTrue((battle / "completion.done").exists())
+
+    def test_failed_ready_never_captures_or_releases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            battle = Path(directory)
+            def ready():
+                raise RuntimeError("server stopped before final capture")
+            with self.assertRaisesRegex(RuntimeError, "server stopped"):
+                complete_after_capture(battle, lambda: self.fail("captured before ready"), ready)
+            self.assertFalse((battle / "completion.done").exists())
+
     def test_failed_capture_never_releases(self):
         with tempfile.TemporaryDirectory() as directory:
             battle = Path(directory)

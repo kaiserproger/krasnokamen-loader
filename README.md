@@ -887,6 +887,11 @@ succeeds and the scenario creates `battle/completion.done`. The runner exposes
 `battle/completion.ready` after recording and fails closed after 240 seconds
 without completion. A missing camera player reports a lifecycle error, not a
 dictionary-key failure.
+The core's `java-battle-end-camera` scenario passes `--late-capture`: it waits
+on the runner's `completion.ready` filesystem event before the final screenshot,
+asserts the runner has not sent `stop`, verifies the camera remains in Play,
+and only then releases `completion.done`. This proves the late-capture path
+instead of relying on the combat phase happening to outlast the recorder.
 Approach receipts retain the target, before/after player observations, the
 existing combat engagement diagnostics, and nearby blocks on refusal. The
 90-second combat deadline and ordinary survival movement remain unchanged;
